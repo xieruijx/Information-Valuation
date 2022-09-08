@@ -17,8 +17,7 @@ m_demand_mean = [0.44; 0.46; 0.51; 0.58; 0.60; 0.64;
 delta = 0.95; %
 xi = 0.95; %
 
-Gamma = sqrt(2*(1-delta)/pi)+sqrt((1-delta)*(1-2/pi)/(1-xi));
-Gamma_T = Gamma * Num_t;
+Gamma_T = sqrt(Num_t*(1-delta)*(1+Num_t-Num_t*xi)/(1-xi));
 
 %% Parameter for generator
 
@@ -46,7 +45,7 @@ sigma_2D = 4e-4*ones(Num_j,1);
 % save('d_real.mat','d_real');
 load('d_real33.mat','d_real');
 sigma_D = sqrt(sigma_2D);
-Gamma_S = Gamma * Num_j;
+Gamma_S = sqrt(Num_j*(1-delta)*(1+Num_j-Num_j*xi)/(1-xi));
 
 %% Parameter for main grid
 
