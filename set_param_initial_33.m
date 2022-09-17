@@ -6,7 +6,7 @@ Num_t = 24;
 
 Num_m = 30;
 
-m_C = 0.00005;
+m_C = 0.0002;
 m_sigma = 1; %
 m_demand_mean = [0.44; 0.46; 0.51; 0.58; 0.60; 0.64;
     0.66; 0.70; 0.76; 0.80; 0.81; 0.84;
@@ -33,17 +33,17 @@ R_max = 0.4 * p_max; % ramp
 
 %% Parameter for prosumer
 mpc = loadcase('case33bw.m');
-J_index = [2;4;7;8;14;24;25;29;30;31;32];
-Num_j = length(J_index);
+Num_j = 4;
+J_index = (2:Num_j+1)';
 
 % m_demand_mean = normrnd(ones(Num_j,1)*m_demand_mean',0.01*ones(Num_j,Num_t));
 % d_mean = (mpc.bus(J_index, 3) * ones(1,Num_t)) .* m_demand_mean;
 % save('d_mean.mat','d_mean');
-load('d_mean33.mat','d_mean');
-sigma_2D = 4e-4*ones(Num_j,1);
+load('d_mean33_4.mat','d_mean');
+sigma_2D = 4e-3*ones(Num_j,1);
 % d_real = normrnd(d_mean,sqrt(sigma_2D)*ones(1,Num_t));
 % save('d_real.mat','d_real');
-load('d_real33.mat','d_real');
+load('d_real33_4.mat','d_real');
 sigma_D = sqrt(sigma_2D);
 Gamma_S = sqrt(Num_j*(1-delta)*(1+Num_j-Num_j*xi)/(1-xi));
 
@@ -66,13 +66,10 @@ mpc = loadcase('case33bw.m');
 PD = mpc.bus(:, 3) * ones(1, 24); % P demand
 PD(J_index,:) = 0;
 % Branch
-Ibranch = mpc.branch(:, 1: 2); % branch: from bus, to bus
-[Nbranch, ~] = size(Ibranch);
-% BR_R = mpc.branch(:, 3);
-BR_X = mpc.branch(:, 4) / 100;
-% Gbranch = BR_R ./ (BR_R .* BR_R + BR_X .* BR_X);
-% Bbranch = - BR_X ./ (BR_R .* BR_R + BR_X .* BR_X);
-% Sbranch = mpc.branch(:, 6) / mpc.baseMVA; % branch capacity
+Nbranch = Nbus - 1;
+Ibranch = mpc.branch(1:Nbranch, 1: 2); % branch: from bus, to bus
+BR_X = mpc.branch(1:Nbranch, 4) / mpc.baseMVA;
+% Sbranch = mpc.branch(1:Nbranch, 6) / mpc.baseMVA; % branch capacity
 Sbranch = 0.95 * ones(size(BR_X));
 IFrom = zeros(Nbranch, Nbus);
 ITo = zeros(Nbranch, Nbus);
@@ -101,7 +98,7 @@ end
 
 eta_lower = -1000;
 M = 1000;
-TOL = 0.01;
+TOL = 1;
 m_penalty = 1e6;
 
 %% Parameter for linearization

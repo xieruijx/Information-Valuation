@@ -6,7 +6,7 @@ Num_t = 24;
 
 Num_m = 30;
 
-m_C = 0.01;
+m_C = 0.0001;
 m_sigma = 1; %
 m_demand_mean = [0.44; 0.46; 0.51; 0.58; 0.60; 0.64;
     0.66; 0.70; 0.76; 0.80; 0.81; 0.84;
@@ -15,34 +15,35 @@ m_demand_mean = [0.44; 0.46; 0.51; 0.58; 0.60; 0.64;
 
 
 delta = 0.95; %
-xi = delta; %
+xi = 0.95; %
 
 Gamma_T = sqrt(Num_t*(1-delta)*(1+Num_t-Num_t*xi)/(1-xi));
 
 %% Parameter for generator
 
-Num_i = 3;
+Num_i = 8;
 
-alpha = [30;40;20]*ones(1,Num_t); % dollar/1 MW
+alpha = [30;40;20;30;30;40;20;30]*ones(1,Num_t); % dollar/1 MW
 gamma = alpha;
 
-p_max = [5.2;2;6]; % MW
+p_max = [0.9;0.8;1;0.9;0.9;0.8;1;0.9]; % MW
 p_min = 0.3 * p_max;
 r_max = 0.4 * p_max; % reserve
 R_max = 0.4 * p_max; % ramp
 
 %% Parameter for prosumer
+mpc = loadcase('case123.m');
+Num_j = 4;
+J_index = (2:Num_j+1)';
 
-Num_j = 5;
 % m_demand_mean = normrnd(ones(Num_j,1)*m_demand_mean',0.01*ones(Num_j,Num_t));
-% d_mean = ([0; -1; 3; 3; 4] * ones(1,Num_t)) .* m_demand_mean;
+% d_mean = (mpc.bus(J_index, 3) * ones(1,Num_t)) .* m_demand_mean;
 % save('d_mean.mat','d_mean');
-load('d_mean.mat','d_mean');
-sigma_2D = [0.08; 0.02; 0.04; 0.09; 0.01];
-% sigma_2D = sigma_2D * 0.111;
+load('d_mean123_4.mat','d_mean');
+sigma_2D = 4e-3*ones(Num_j,1);
 % d_real = normrnd(d_mean,sqrt(sigma_2D)*ones(1,Num_t));
 % save('d_real.mat','d_real');
-load('d_real.mat','d_real');
+load('d_real123_4.mat','d_real');
 sigma_D = sqrt(sigma_2D);
 Gamma_S = sqrt(Num_j*(1-delta)*(1+Num_j-Num_j*xi)/(1-xi));
 
@@ -54,26 +55,20 @@ pi_sf = pi_bf-1;
 pi_bs = pi_bf;
 pi_ss = pi_sf;
 
-E_max = 2.1;
+E_max = 1;
 
 %% Parameter for power system
 
-mpc = loadcase('case5.m');
-
 % Bus
 [Nbus,~] = size(mpc.bus);
-PD = 0 * mpc.bus(:, 3) / mpc.baseMVA * ones(1, 24); % P demand
-
+PD = mpc.bus(:, 3) * ones(1, 24); % P demand
+PD(J_index,:) = 0;
 % Branch
 Ibranch = mpc.branch(:, 1: 2); % branch: from bus, to bus
 [Nbranch, ~] = size(Ibranch);
-BR_R = mpc.branch(:, 3);
-BR_X = mpc.branch(:, 4);
-Gbranch = BR_R ./ (BR_R .* BR_R + BR_X .* BR_X);
-Bbranch = - BR_X ./ (BR_R .* BR_R + BR_X .* BR_X);
+BR_X = mpc.branch(:, 4) / mpc.baseMVA;
 % Sbranch = mpc.branch(:, 6) / mpc.baseMVA; % branch capacity
-Sbranch = 10 * ones(size(Gbranch)); %
-Sbranch(1) = 4; Sbranch(6) = 2.4;
+Sbranch = 0.95 * ones(size(BR_X));
 IFrom = zeros(Nbranch, Nbus);
 ITo = zeros(Nbranch, Nbus);
 for i = 1: Nbranch
@@ -82,7 +77,7 @@ for i = 1: Nbranch
 end
 
 % Generator
-Igen = [3; 4; 5];
+Igen = [12;30;48;60;80;98;116;128];
 assert(length(Igen) == Num_i);
 Igenbus = zeros(Num_i,Nbus);
 for i = 1: Num_i
@@ -90,7 +85,7 @@ for i = 1: Num_i
 end
 
 % Prosumer
-Ipro = [1; 2; 3; 4; 5];
+Ipro = J_index;
 assert(length(Ipro) == Num_j);
 Iprobus = zeros(Num_j,Nbus);
 for j = 1: Num_j
