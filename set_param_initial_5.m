@@ -1,5 +1,5 @@
 %% General parameter
-
+close all
 error = 1e-8;
 
 Num_t = 24;
@@ -7,14 +7,13 @@ Num_t = 24;
 Num_m = 30;
 
 m_C = 0.01;
+% m_C = 0.2;
 m_sigma = 1; %
-m_demand_mean = [0.44; 0.46; 0.51; 0.58; 0.60; 0.64;
-    0.66; 0.70; 0.76; 0.80; 0.81; 0.84;
-    0.80; 0.76; 0.72; 0.61; 0.60; 0.63;
-    0.69; 0.80; 0.77; 0.64; 0.56; 0.51] / 0.84;
+
 
 
 delta = 0.95; %
+% delta = 0.85;
 xi = delta; %
 
 Gamma_T = sqrt(Num_t*(1-delta)*(1+Num_t-Num_t*xi)/(1-xi));
@@ -23,38 +22,48 @@ Gamma_T = sqrt(Num_t*(1-delta)*(1+Num_t-Num_t*xi)/(1-xi));
 
 Num_i = 3;
 
-alpha = [30;40;20]*ones(1,Num_t); % dollar/1 MW
-gamma = alpha;
+rho = [30;35;25]*ones(1,Num_t); % dollar/1 MW
+rhop = rho;
+rhon = [0;0;0]*ones(1,Num_t);
+gammap = [0;0;1]*ones(1,Num_t);
+gamman = [0;0;1]*ones(1,Num_t);
 
-p_max = [5.2;2;6]; % MW
-p_min = 0.3 * p_max;
-r_max = 0.4 * p_max; % reserve
-R_max = 0.4 * p_max; % ramp
+p_max = [3;2;6]; % MW
+% p_min = [0.9;0.6;1.8];
+p_min = [1;0.8;2];
+r_max = 0.5 * p_max; % reserve
+R_max = 0.5 * p_max; % ramp
+
+penalty_shedding = 100; %
 
 %% Parameter for prosumer
 
 Num_j = 5;
-% m_demand_mean = normrnd(ones(Num_j,1)*m_demand_mean',0.01*ones(Num_j,Num_t));
-% d_mean = ([0; -1; 3; 3; 4] * ones(1,Num_t)) .* m_demand_mean;
-% save('d_mean.mat','d_mean');
-load('d_mean.mat','d_mean');
+d_mean = zeros(5,24);
+d_mean(1,:) = (-1)*[0.79,0.73,0.76,0.81,0.90,0.96,0.95,0.89,0.88,0.83,0.87,1.12,...
+    1.34,1.52,1.56,1.53,1.39,1.02,0.79,0.71,0.66,0.63,0.60,0.57]-1;
+d_mean(2,:) = (-0.5)*[0.59,0.59,0.54,0.51,0.51,0.46,0.41,0.41,0.45,0.45,0.34,0.49,...
+    0.79,1.07,1.11,0.99,0.83,0.57,0.35,0.28,0.28,0.33,0.39,0.45]-0.5;
+d_mean(3,:) = 2*[0.53,0.55,0.61,0.69,0.71,0.76,0.79,0.83,0.90,0.95,0.96,1.00,...
+    0.95,0.90,0.86,0.73,0.71,0.75,0.82,0.95,0.92,0.76,0.67,0.61];
+d_mean(4,:) = 2*[0.53,0.55,0.61,0.69,0.71,0.76,0.79,0.83,0.90,0.95,0.96,1.00,...
+    0.95,0.90,0.86,0.73,0.71,0.75,0.82,0.95,0.92,0.76,0.67,0.61];
+d_mean(5,:) = 3.5*[0.72,0.71,0.68,0.66,0.63,0.61,0.60,0.59,0.60,0.62,0.66,0.80,...
+    0.92,1.00,1.04,1.03,0.99,0.86,0.69,0.72,0.62,0.67,0.74,0.82];
+figure;
+plot(d_mean');
+% sigma_2D = [0.04; 0.03; 0.01; 0.04; 0.01];
 sigma_2D = [0.08; 0.02; 0.04; 0.09; 0.01];
-% sigma_2D = sigma_2D * 0.111;
+% sigma_2D = sigma_2D*0.2;
 % d_real = normrnd(d_mean,sqrt(sigma_2D)*ones(1,Num_t));
+% d_real(1,d_real(1,:)>0) = 0;
+% d_real(2,d_real(2,:)>0) = 0;
 % save('d_real.mat','d_real');
 load('d_real.mat','d_real');
+figure;
+plot(d_real');
 sigma_D = sqrt(sigma_2D);
 Gamma_S = sqrt(Num_j*(1-delta)*(1+Num_j-Num_j*xi)/(1-xi));
-
-%% Parameter for main grid
-
-pi_bf = [25*ones(9,1);35*ones(12,1);25*ones(3,1)]; % dollar/MW
-pi_sf = pi_bf-1;
-
-pi_bs = pi_bf;
-pi_ss = pi_sf;
-
-E_max = 2.1;
 
 %% Parameter for power system
 
@@ -62,7 +71,7 @@ mpc = loadcase('case5.m');
 
 % Bus
 [Nbus,~] = size(mpc.bus);
-PD = 0 * mpc.bus(:, 3) / mpc.baseMVA * ones(1, 24); % P demand
+PD = [1.5;1.8;0;0;0] * ones(1, 24); % P demand
 
 % Branch
 Ibranch = mpc.branch(:, 1: 2); % branch: from bus, to bus
@@ -80,6 +89,15 @@ for i = 1: Nbranch
     IFrom(i, Ibranch(i, 1)) = 1;
     ITo(i, Ibranch(i, 2)) = 1;
 end
+PTDF = zeros(Nbranch+Nbus-1,Nbus);
+Arel = IFrom(:,2:Nbus)-ITo(:,2:Nbus);
+Mrel = [Arel',zeros(Nbus-1,Nbus-1);diag(BR_X),Arel];
+for i = 2:Nbus
+    erel = zeros(Nbranch+Nbus-1,1);
+    erel(i-1) = 1;
+    PTDF(:,i) = Mrel\erel;
+end
+PTDF = PTDF(1:Nbranch,:);
 
 % Generator
 Igen = [3; 4; 5];
@@ -100,8 +118,8 @@ end
 %% Parameter for computation
 
 eta_lower = -1000;
-M = 1000;
-TOL = 1;
+M = 1e6;
+TOL = 10;
 m_penalty = 1e6;
 
 %% Parameter for linearization
