@@ -7,13 +7,11 @@ Num_t = 24;
 Num_m = 30;
 
 m_C = 0.01;
-% m_C = 0.2;
 m_sigma = 1; %
 
 
 
 delta = 0.95; %
-% delta = 0.85;
 xi = delta; %
 
 Gamma_T = sqrt(Num_t*(1-delta)*(1+Num_t-Num_t*xi)/(1-xi));
@@ -28,13 +26,12 @@ rhon = [0;0;0]*ones(1,Num_t);
 gammap = [0;0;1]*ones(1,Num_t);
 gamman = [0;0;1]*ones(1,Num_t);
 
-p_max = [3;2;6]; % MW
-% p_min = [0.9;0.6;1.8];
-p_min = [1;0.8;2];
+p_max = [7;7;8]; % MW
+p_min = 0.4 * p_max;
 r_max = 0.5 * p_max; % reserve
 R_max = 0.5 * p_max; % ramp
 
-penalty_shedding = 100; %
+penalty_curtailment = 100; 
 
 %% Parameter for prosumer
 
@@ -52,9 +49,7 @@ d_mean(5,:) = 3.5*[0.72,0.71,0.68,0.66,0.63,0.61,0.60,0.59,0.60,0.62,0.66,0.80,.
     0.92,1.00,1.04,1.03,0.99,0.86,0.69,0.72,0.62,0.67,0.74,0.82];
 figure;
 plot(d_mean');
-% sigma_2D = [0.04; 0.03; 0.01; 0.04; 0.01];
 sigma_2D = [0.08; 0.02; 0.04; 0.09; 0.01];
-% sigma_2D = sigma_2D*0.2;
 % d_real = normrnd(d_mean,sqrt(sigma_2D)*ones(1,Num_t));
 % d_real(1,d_real(1,:)>0) = 0;
 % d_real(2,d_real(2,:)>0) = 0;
@@ -62,6 +57,8 @@ sigma_2D = [0.08; 0.02; 0.04; 0.09; 0.01];
 load('d_real.mat','d_real');
 figure;
 plot(d_real');
+figure;
+plot(sum(d_real,1));
 sigma_D = sqrt(sigma_2D);
 Gamma_S = sqrt(Num_j*(1-delta)*(1+Num_j-Num_j*xi)/(1-xi));
 
@@ -71,7 +68,7 @@ mpc = loadcase('case5.m');
 
 % Bus
 [Nbus,~] = size(mpc.bus);
-PD = [1.5;1.8;0;0;0] * ones(1, 24); % P demand
+PD = [2.2*3;1.8*3;0.5;0;0] * ones(1, 24); % P demand
 
 % Branch
 Ibranch = mpc.branch(:, 1: 2); % branch: from bus, to bus
@@ -80,9 +77,7 @@ BR_R = mpc.branch(:, 3);
 BR_X = mpc.branch(:, 4);
 Gbranch = BR_R ./ (BR_R .* BR_R + BR_X .* BR_X);
 Bbranch = - BR_X ./ (BR_R .* BR_R + BR_X .* BR_X);
-% Sbranch = mpc.branch(:, 6) / mpc.baseMVA; % branch capacity
-Sbranch = 10 * ones(size(Gbranch)); %
-Sbranch(1) = 4; Sbranch(6) = 2.4;
+Sbranch = 20 * ones(size(Gbranch)); %
 IFrom = zeros(Nbranch, Nbus);
 ITo = zeros(Nbranch, Nbus);
 for i = 1: Nbranch
@@ -119,8 +114,6 @@ end
 
 eta_lower = -1000;
 M = 1e6;
-TOL = 10;
-m_penalty = 1e6;
 
 %% Parameter for linearization
 

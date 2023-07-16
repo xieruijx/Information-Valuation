@@ -21,15 +21,20 @@ Gamma_T = sqrt(Num_t*(1-delta)*(1+Num_t-Num_t*xi)/(1-xi));
 
 %% Parameter for generator
 
-Num_i = 8;
+Num_i = 9;
 
-alpha = [30;40;20;30;30;40;20;30]*ones(1,Num_t); % dollar/1 MW
-gamma = alpha;
+rho = [25;30;40;20;30;30;40;20;30]*ones(1,Num_t); % dollar/1 MW
+rhop = rho;
+rhon = zeros(size(rho));
+gammap = zeros(size(rho));
+gamman = zeros(size(rho));
 
-p_max = [0.9;0.8;1;0.9;0.9;0.8;1;0.9]; % MW
+p_max = [1;0.9;0.8;1;0.9;0.9;0.8;1;0.9]; % MW
 p_min = 0.3 * p_max;
 r_max = 0.4 * p_max; % reserve
 R_max = 0.4 * p_max; % ramp
+
+penalty_curtailment = 0; 
 
 %% Parameter for prosumer
 mpc = loadcase('case123.m');
@@ -39,23 +44,15 @@ J_index = (2:Num_j+1)';
 % m_demand_mean = normrnd(ones(Num_j,1)*m_demand_mean',0.01*ones(Num_j,Num_t));
 % d_mean = (mpc.bus(J_index, 3) * ones(1,Num_t)) .* m_demand_mean;
 % save('d_mean.mat','d_mean');
-load('d_mean123_4.mat','d_mean');
+load('d_mean123_24.mat','d_mean');
+d_mean = -d_mean;
 sigma_2D = 4e-3*ones(Num_j,1);
 % d_real = normrnd(d_mean,sqrt(sigma_2D)*ones(1,Num_t));
 % save('d_real.mat','d_real');
-load('d_real123_4.mat','d_real');
+load('d_real123_24.mat','d_real');
+d_real = -d_real;
 sigma_D = sqrt(sigma_2D);
 Gamma_S = sqrt(Num_j*(1-delta)*(1+Num_j-Num_j*xi)/(1-xi));
-
-%% Parameter for main grid
-
-pi_bf = [25*ones(9,1);35*ones(12,1);25*ones(3,1)]; % dollar/MW
-pi_sf = pi_bf-1;
-
-pi_bs = pi_bf;
-pi_ss = pi_sf;
-
-E_max = 1;
 
 %% Parameter for power system
 
@@ -67,7 +64,6 @@ PD(J_index,:) = 0;
 Ibranch = mpc.branch(:, 1: 2); % branch: from bus, to bus
 [Nbranch, ~] = size(Ibranch);
 BR_X = mpc.branch(:, 4) / mpc.baseMVA;
-% Sbranch = mpc.branch(:, 6) / mpc.baseMVA; % branch capacity
 Sbranch = 0.95 * ones(size(BR_X));
 IFrom = zeros(Nbranch, Nbus);
 ITo = zeros(Nbranch, Nbus);
@@ -75,9 +71,18 @@ for i = 1: Nbranch
     IFrom(i, Ibranch(i, 1)) = 1;
     ITo(i, Ibranch(i, 2)) = 1;
 end
+PTDF = zeros(Nbranch+Nbus-1,Nbus);
+Arel = IFrom(:,2:Nbus)-ITo(:,2:Nbus);
+Mrel = [Arel',zeros(Nbus-1,Nbus-1);diag(BR_X),Arel];
+for i = 2:Nbus
+    erel = zeros(Nbranch+Nbus-1,1);
+    erel(i-1) = 1;
+    PTDF(:,i) = Mrel\erel;
+end
+PTDF = PTDF(1:Nbranch,:);
 
 % Generator
-Igen = [12;30;48;60;80;98;116;128];
+Igen = [1;12;30;48;60;80;98;116;123];
 assert(length(Igen) == Num_i);
 Igenbus = zeros(Num_i,Nbus);
 for i = 1: Num_i
@@ -96,8 +101,6 @@ end
 
 eta_lower = -1000;
 M = 1000;
-TOL = 1;
-m_penalty = 1e6;
 
 %% Parameter for linearization
 
